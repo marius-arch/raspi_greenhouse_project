@@ -19,6 +19,8 @@ result = instance.read()
 while not result.is_valid():
    result = instance.read()
     
-segment[0] = str(result.temperature / 10)
-segment[1] = str(result.temperature % 10)
+segment[0] = str(int(result.temperature) / 10)
+segment[1] = str(int(result.temperature) % 10)
+segment[2] = str(int(result.temperature) % 1)
+segment[3] = str(int(result.temperature) % 1) / 1
     
