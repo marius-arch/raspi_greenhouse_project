@@ -4,6 +4,7 @@ import board
 import time
  
 from adafruit_ht16k33.segments import Seg7x4
+from statistics import median
  
 ## initialize GPIO
 # disable warnings for ports that are already in use
@@ -26,22 +27,32 @@ segment.fill(0)
 
 # while 1 continiously runs the code inside of it, to make sure the measured values are up-to-date
 while 1:
-    # reads the current temperature and humidity from the dht11 sensor
+    # create array for temp and humidity values
+    temperatures = []
+    humidities = []
+    # read temperature and humidity ten times and save it in array
     for i in range(10):
-    
-    result = instance.read()
-   
-    while not result.is_valid():  # read until valid values
+        # reads the current temperature and humidity of the dht11 sensor
         result = instance.read()
-    
+        while not result.is_valid():  # read until valid values
+            result = instance.read()
+        # add the values to the arrays
+        temperatures.append(result.temperature)
+        humidities.append(result.humidity)
+
+    # create the median of the values to avoid deviations
+    temperature = median(sorted(temperatures))
+    humidity = median(sorted(humidities))
+
     # prints the current measured temperature and humidity for testing purposes
-    print("Temperature: %-3.1f C" % result.temperature)
-    print("Humidity: %-3.1f %%" % result.humidity)
+    print("Temperature: %-3.1f C" % temperature)
+    print("Humidity: %-3.1f %%" % humidity)
  
     # configure what each segment of the display should show
-    segment[0] = str(int(result.temperature / 10))
-    segment[1] = str(int(result.temperature % 10))
-    segment[2] = str(int(result.humidity / 10))
-    segment[3] = str(int(result.humidity % 10))
+    segment[0] = str(int(temperature / 10))
+    segment[1] = str(int(temperature % 10))
+    segment[2] = str(int(humidity / 10))
+    segment[3] = str(int(humidity % 10))
     
+    # wait 200ms until continuing
     time.sleep(0.2)
