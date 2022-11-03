@@ -1,3 +1,4 @@
+# import all the used libraries
 import RPi.GPIO as GPIO
 import dht11
 import board
@@ -40,8 +41,10 @@ while 1:
         temperatures.append(result.temperature)
         humidities.append(result.humidity)
 
-    # create the median of the values to avoid deviations
+    # create the median of the values to avoid deviations and make the values global
+    global temperature
     temperature = median(sorted(temperatures))
+    global humidity
     humidity = median(sorted(humidities))
 
     # prints the current measured temperature and humidity for testing purposes
