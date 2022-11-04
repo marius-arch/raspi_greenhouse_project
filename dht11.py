@@ -5,6 +5,7 @@ import board
 import time
  
 from adafruit_ht16k33.segments import Seg7x4
+from Adafruit_CharLCD import Adafruit_CharLCD
 from statistics import median
  
 ## initialize GPIO
@@ -23,8 +24,13 @@ instance = dht11.DHT11(pin = 4)
 i2c = board.I2C()
 # create a 4 character 7 segment display
 segment = Seg7x4(i2c, address=0x70)
-# clear the display
+# clear the 7 segment display
 segment.fill(0)
+
+## initialize lcd display
+lcd = Adafruit_CharLCD(rs=26, en=19, d4=13, d5=6, d6=5, d7=11, cols=16, lines=2)
+# clear the lcd display
+lcd.clear()
 
 # while 1 continiously runs the code inside of it, to make sure the measured values are up-to-date
 while 1:
@@ -47,15 +53,18 @@ while 1:
     global humidity
     humidity = median(sorted(humidities))
 
-    # prints the current measured temperature and humidity for testing purposes
-    print("Temperature: %-3.1f C" % temperature)
-    print("Humidity: %-3.1f %%" % humidity)
+    # prints the current measured temperature and humidity with one decimal place for testing purposes
+    print("Temperature: {:.1f} °C".format(temperature))
+    print("Humidity: {:.1f} %".format(humidity))
  
     # configure what each segment of the display should show
     segment[0] = str(int(temperature / 10))
     segment[1] = str(int(temperature % 10))
     segment[2] = str(int(humidity / 10))
     segment[3] = str(int(humidity % 10))
+
+    # display the temperature and humidity on the lcd display with one decimal place
+    lcd.message('Temp={:.1f}°C  \nHumidity={:.1f}%'.format(temperature, humidity))
     
     # wait 200ms until continuing
     time.sleep(0.2)
