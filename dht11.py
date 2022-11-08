@@ -128,6 +128,9 @@ def main():
         # wait 200ms until continuing
         time.sleep(0.2)
 
+        # website for matrix:
+        # https://xantorohara.github.io/led-matrix-editor/
+
 # run main function
 if __name__ == "__main__":
     main()
