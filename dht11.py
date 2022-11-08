@@ -38,8 +38,8 @@ lcd.clear()
 # pass-trough number for console debugging
 passTrough = 1
  
-# while 1 continiously runs the code inside of it, to make sure the measured values are up-to-date
-while 1:
+# while True continiously runs the code inside of it, to make sure the measured values are up-to-date
+while True:
     # create array for temp and humidity values
     temperatures = []
     humidities = []
