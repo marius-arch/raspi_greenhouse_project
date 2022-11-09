@@ -66,7 +66,7 @@ def main():
         print("Starting measurements...")
 
         #start measurements
-        dht11()
+        dht11Measurement()
     
         # prints the current measured temperature and humidity with one decimal place for testing purposes
         print("Temperature: {:.1f}°C".format(temperature))
