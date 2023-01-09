@@ -213,15 +213,15 @@ def main():
         # relay_pin as exit
         GPIO.setup(relay_pin, GPIO.OUT)
         if(leftTime <= 0):
-            # close Relais
+            # close relay
             GPIO.output(relay_pin, GPIO.HIGH)
         else: 
             shutDownTime = sunset_time + timedelta(minutes=leftTime)
             if(currentTime >= shutDownTime and currentTime < sunrise_time):
-                # close Relais
+                # close relay
                 GPIO.output(relay_pin, GPIO.HIGH)
             else: 
-                # open Relais
+                # open relay
                 GPIO.output(relay_pin, GPIO.LOW)
         
         GPIO.cleanup()
