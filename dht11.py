@@ -11,8 +11,6 @@ import adafruit_character_lcd.character_lcd_i2c as character_lcd
 from luma.core.interface.serial import spi, noop
 from luma.core.render import canvas
 from luma.led_matrix.device import max7219
-from luma.core.legacy import text
-from luma.core.legacy.font import proportional
 from statistics import median
 
 # show that script has started
@@ -25,6 +23,9 @@ GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 # cleanup all the used ports
 GPIO.cleanup()
+
+# define relay pin
+relay_pin = 40
 
 # configure on which gpio pin the dht11 sensor is located
 dht11_sensor = dht11.DHT11(pin = 4)
@@ -40,8 +41,6 @@ segment.fill(0)
 ##initialize matrix display
 serial = spi(port=0, device=0, gpio=noop())
 device = max7219(serial)
-#setup font for matrix display
-font = ImageFont.truetype("pixelmix.ttf", 8)
  
 ## initialize lcd display
 lcd = character_lcd.Character_LCD_I2C(i2c, 16, 2, 0x21)
