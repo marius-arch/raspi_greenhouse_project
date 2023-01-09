@@ -145,6 +145,8 @@ def drawMatrixSymbol(symbol, color):
         for col in range(len(symbol[row])):
             if(symbol[row][col] == 1):
                 canvas(device).point((row, col), fill=color)
+            else:
+                canvas(device).point((row, col), fill="black")
 
 # define main function
 def main():
