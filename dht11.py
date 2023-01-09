@@ -4,13 +4,16 @@ import dht11
 import board
 import smbus
 import time
-from PIL import ImageFont
+import ntplib
+import requests
+import json
  
 from adafruit_ht16k33.segments import Seg7x4
 import adafruit_character_lcd.character_lcd_i2c as character_lcd
 from luma.core.interface.serial import spi, noop
 from luma.core.render import canvas
 from luma.led_matrix.device import max7219
+from datetime import datetime, timezone
 from statistics import median
 
 # show that script has started
@@ -46,6 +49,9 @@ device = max7219(serial)
 lcd = character_lcd.Character_LCD_I2C(i2c, 16, 2, 0x21)
 # clear the lcd display
 lcd.clear()
+
+## define ntp client for time pull
+c = ntplib.NTPClient()
 
 ## define which smbus to use
 bus = smbus.SMBus(1)
@@ -184,6 +190,45 @@ def main():
         # display the temperature and humidity on the lcd display with one decimal place
         lcd.message = "Temp= {:.1f}".format(temperature) + chr(223) + "C\n" + "Humidity= {:.0f}%".format(humidity)
         
+        ## check for current time with server
+        response = c.request('10.254.5.115', version=3)
+        response.offset
+        currentTime = datetime.fromtimestamp(response.tx_time, timezone.utc)
+
+        ## check for sunrise-/sunsettime
+        # lat and long of bszetdd
+        lat = 51.033749
+        long = 13.748540
+        response = requests.get(f'https://api.sunrise-sunset.org/json?lat={lat}&lng={long}&formatted=0')
+        data = json.loads(response.content)
+        sunrise = data['results']['sunrise'] # data for sunrise
+        sunset = data['results']['sunset'] # data for sunset
+        sunrise_time = datetime(year=currentTime.year,month=currentTime.month, day=currentTime.day, hour=int(sunrise[11:13]), minute=int(sunrise[14:16])) # transform sunrise into time format
+        sunset_time = datetime(year=currentTime.year,month=currentTime.month, day=currentTime.day, hour=int(sunset[11:13]), minute=int(sunset[14:16])) # transform sunset into time format
+        sunset_difference = (sunset_time.hour * 60 + sunset_time.minute) - (sunrise_time.hour * 60 + sunrise_time.minute)
+        leftTime = 12*60 - sunset_difference
+
+        # Board mode GPIO.BOARD
+        GPIO.setmode(GPIO.BOARD)
+        # relay_pin as exit
+        GPIO.setup(relay_pin, GPIO.OUT)
+        if(leftTime <= 0):
+            # close Relais
+            GPIO.output(relay_pin, GPIO.HIGH)
+        else: 
+            shutDownTime = sunset_time + timedelta(minutes=leftTime)
+            if(currentTime >= shutDownTime and currentTime < sunrise_time):
+                # close Relais
+                GPIO.output(relay_pin, GPIO.HIGH)
+            else: 
+                # open Relais
+                GPIO.output(relay_pin, GPIO.LOW)
+        
+        GPIO.cleanup()
+        # refer to the pins by the Broadcom SOC channel
+        GPIO.setmode(GPIO.BCM)
+        GPIO.cleanup()
+
         # increase pass-trough number
         passTrough+=1
     
