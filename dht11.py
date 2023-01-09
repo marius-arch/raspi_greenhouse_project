@@ -13,7 +13,7 @@ import adafruit_character_lcd.character_lcd_i2c as character_lcd
 from luma.core.interface.serial import spi, noop
 from luma.core.render import canvas
 from luma.led_matrix.device import max7219
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from statistics import median
 
 # show that script has started
