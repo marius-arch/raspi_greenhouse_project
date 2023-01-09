@@ -7,6 +7,10 @@ import time
  
 from adafruit_ht16k33.segments import Seg7x4
 import adafruit_character_lcd.character_lcd_i2c as character_lcd
+from luma.led_matrix.device import max7219
+from luma.core.interface.serial import spi, noop
+from luma.core.legacy import show_message
+from luma.core.legacy.font import proportional, CP437_FONT
 from statistics import median
 
 # show that script has started
@@ -73,6 +77,16 @@ class LightSensor():
         data = bus.read_i2c_block_data(self.DEVICE,self.ONE_TIME_HIGH_RES_MODE_1)
         return self.convertToNumber(data)
 
+def output(n, block_orientation, rotate, inreverse, text):
+    #create matrix device
+    serial = spi(port=0, device=0, gpio=noop())
+    device = max7219(serial, casecaded=n or 1, block_orientation=block_orientation, rotate=rotate or 0, blocks_arranged_in_reverse_order=inreverse)
+    
+    print(text)
+    
+    show_message(device, text, fill="white", font=proportional(CP427_FONT), scroll_delay=0.05)
+    time.sleep(1)
+
 def dht11Measurement():
     # create array for temp and humidity values
     temperatures = []
@@ -115,12 +129,26 @@ def main():
         print ("Light Level: {:.2f}".format(sensor.readLight()))
         #create empty line
         print()
+        
+        show_message(device, "test", fill="white", font=proportional(CP437_FONT), scroll_delay=0.1)
     
         # configure what each segment of the display should show
         segment[0] = str(int(temperature / 10))
         segment[1] = str(int(temperature % 10))
         segment[2] = str(int(humidity / 10))
         segment[3] = str(int(humidity % 10))
+        
+        parser = argparse.ArgumentParser(description='view_message arguments',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+ 
+        parser.add_argument('--cascaded', '-n', type=int, default=1, help='Number of cascaded MAX7219 LED matrices')
+        parser.add_argument('--block-orientation', type=int, default=0, choices=[0, 90, -90], help='Corrects block orientation when wired vertically')
+        parser.add_argument('--rotate', type=int, default=0, choices=[0, 1, 2, 3], help='Rotate display 0=0°, 1=90°, 2=180°, 3=270°')
+        parser.add_argument('--reverse-order', type=bool, default=False, help='Set to true if blocks are in reverse order')
+        parser.add_argument('--text', '-t', default='>>> No text set', help='Set text message')
+        args = parser.parse_args()
+        
+        output(args.cascaded, args.block_orientation, args.rotate, args.reverse_order, args.text)
     
         # turn on backlight of lcd display
         lcd.backlight = True
@@ -135,6 +163,7 @@ def main():
 
         # website for matrix:
         # https://xantorohara.github.io/led-matrix-editor/
+        # https://luma-led-matrix.readthedocs.io/en/latest/python-usage.html
 
 # run main function
 if __name__ == "__main__":
