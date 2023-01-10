@@ -158,7 +158,7 @@ def main():
 
     #check if log file exists
     if(os.path.exists("measurements.csv") == False):
-        open("measurements.csv", "a").write("Time,Temperature,Humidity,Light,LightRating,RelayState\n")
+        open("measurements.csv", "a").write("Time;Temperature;Humidity;Light;LightRating;RelayState\n")
 
 
     # while True continiously runs the code inside of it, to make sure the measured values are up-to-date
@@ -244,7 +244,7 @@ def main():
         GPIO.cleanup()
 
         #write all measurements to log file (csv)
-        open("measurements.csv", "a").write(f"{currentTime},{temperature},{humidity},{lightLevel},{lightRating},{relayState}\n")
+        open("measurements.csv", "a").write(f"{currentTime};{temperature};{humidity};{lightLevel};{lightRating};{relayState}\n")
 
         # increase pass-trough number
         passTrough+=1
