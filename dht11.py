@@ -4,15 +4,17 @@ import dht11
 import board
 import smbus
 import time
-from PIL import ImageFont
+import ntplib
+import requests
+import json
+import os
  
 from adafruit_ht16k33.segments import Seg7x4
 import adafruit_character_lcd.character_lcd_i2c as character_lcd
 from luma.core.interface.serial import spi, noop
 from luma.core.render import canvas
 from luma.led_matrix.device import max7219
-from luma.core.legacy import text
-from luma.core.legacy.font import proportional
+from datetime import datetime, timezone, timedelta
 from statistics import median
 
 # show that script has started
@@ -25,6 +27,9 @@ GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
 # cleanup all the used ports
 GPIO.cleanup()
+
+# define relay pin
+relay_pin = 40
 
 # configure on which gpio pin the dht11 sensor is located
 dht11_sensor = dht11.DHT11(pin = 4)
@@ -40,13 +45,14 @@ segment.fill(0)
 ##initialize matrix display
 serial = spi(port=0, device=0, gpio=noop())
 device = max7219(serial)
-#setup font for matrix display
-font = ImageFont.truetype("pixelmix.ttf", 8)
  
 ## initialize lcd display
 lcd = character_lcd.Character_LCD_I2C(i2c, 16, 2, 0x21)
 # clear the lcd display
 lcd.clear()
+
+## define ntp client for time pull
+c = ntplib.NTPClient()
 
 ## define which smbus to use
 bus = smbus.SMBus(1)
@@ -140,6 +146,8 @@ def drawMatrixSymbol(symbol, color):
         for col in range(len(symbol[row])):
             if(symbol[row][col] == 1):
                 canvas(device).point((row, col), fill=color)
+            else:
+                canvas(device).point((row, col), fill="black")
 
 # define main function
 def main():
@@ -147,6 +155,11 @@ def main():
     passTrough = 1
     
     sensor = LightSensor()
+
+    #check if log file exists
+    if(os.path.exists("measurements.csv") == False):
+        open("measurements.csv", "a").write("Time;Temperature;Humidity;Light;LightRating;RelayState\n")
+
 
     # while True continiously runs the code inside of it, to make sure the measured values are up-to-date
     while True:
@@ -169,10 +182,13 @@ def main():
         #draw symbols for light level
         if(50000 < lightLevel < 65000):
             drawMatrixSymbol(happy_smiley, "green")
+            lightRating = "good"
         if(45000 < lightLevel < 50000 | 65000 < lightLevel < 70000):
             drawMatrixSymbol(neutral_smiley, "orange")
+            lightRating = "ok"
         if(lightLevel < 45000 | lightLevel > 70000):
             drawMatrixSymbol(sad_smiley, "red")
+            lightRating = "bad"
     
         # configure what each segment of the display should show
         segment[0] = str(int(temperature / 10))
@@ -185,6 +201,51 @@ def main():
         # display the temperature and humidity on the lcd display with one decimal place
         lcd.message = "Temp= {:.1f}".format(temperature) + chr(223) + "C\n" + "Humidity= {:.0f}%".format(humidity)
         
+        ## check for current time with server
+        response = c.request('10.254.5.115', version=3)
+        response.offset
+        currentTime = datetime.fromtimestamp(response.tx_time, timezone.utc)
+
+        ## check for sunrise-/sunsettime
+        # lat and long of bszetdd
+        lat = 51.033749
+        long = 13.748540
+        response = requests.get(f'https://api.sunrise-sunset.org/json?lat={lat}&lng={long}&formatted=0')
+        data = json.loads(response.content)
+        sunrise = data['results']['sunrise'] # data for sunrise
+        sunset = data['results']['sunset'] # data for sunset
+        sunrise_time = datetime(year=currentTime.year,month=currentTime.month, day=currentTime.day, hour=int(sunrise[11:13]), minute=int(sunrise[14:16])) # transform sunrise into time format
+        sunset_time = datetime(year=currentTime.year,month=currentTime.month, day=currentTime.day, hour=int(sunset[11:13]), minute=int(sunset[14:16])) # transform sunset into time format
+        sunset_difference = (sunset_time.hour * 60 + sunset_time.minute) - (sunrise_time.hour * 60 + sunrise_time.minute)
+        leftTime = 12*60 - sunset_difference
+
+        # Board mode GPIO.BOARD
+        GPIO.setmode(GPIO.BOARD)
+        # relay_pin as exit
+        GPIO.setup(relay_pin, GPIO.OUT)
+        if(leftTime <= 0):
+            # close relay
+            GPIO.output(relay_pin, GPIO.HIGH)
+            relayState = "closed"
+        else: 
+            shutDownTime = sunset_time + timedelta(minutes=leftTime)
+            if(currentTime >= shutDownTime and currentTime < sunrise_time):
+                # close relay
+                GPIO.output(relay_pin, GPIO.HIGH)
+                relayState = "closed"
+            else: 
+                # open relay
+                GPIO.output(relay_pin, GPIO.LOW)
+                relayState = "open"
+        
+        GPIO.cleanup()
+        # refer to the pins by the Broadcom SOC channel
+        GPIO.setmode(GPIO.BCM)
+        GPIO.cleanup()
+
+        #write all measurements to log file (csv)
+        open("measurements.csv", "a").write(f"{currentTime};{temperature};{humidity};{lightLevel};{lightRating};{relayState}\n")
+
         # increase pass-trough number
         passTrough+=1
     
