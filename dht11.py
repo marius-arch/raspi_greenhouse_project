@@ -7,6 +7,7 @@ import time
 import ntplib
 import requests
 import json
+import os
  
 from adafruit_ht16k33.segments import Seg7x4
 import adafruit_character_lcd.character_lcd_i2c as character_lcd
@@ -155,6 +156,11 @@ def main():
     
     sensor = LightSensor()
 
+    #check if log file exists
+    if(os.path.exists("measurements.csv") == False):
+        open("measurements.csv", "a").write("Time,Temperature,Humidity,Light,LightRating,RelayState\n")
+
+
     # while True continiously runs the code inside of it, to make sure the measured values are up-to-date
     while True:
         print("Current run: {}".format(passTrough))
@@ -176,10 +182,13 @@ def main():
         #draw symbols for light level
         if(50000 < lightLevel < 65000):
             drawMatrixSymbol(happy_smiley, "green")
+            lightRating = "good"
         if(45000 < lightLevel < 50000 | 65000 < lightLevel < 70000):
             drawMatrixSymbol(neutral_smiley, "orange")
+            lightRating = "ok"
         if(lightLevel < 45000 | lightLevel > 70000):
             drawMatrixSymbol(sad_smiley, "red")
+            lightRating = "bad"
     
         # configure what each segment of the display should show
         segment[0] = str(int(temperature / 10))
@@ -217,19 +226,25 @@ def main():
         if(leftTime <= 0):
             # close relay
             GPIO.output(relay_pin, GPIO.HIGH)
+            relayState = "closed"
         else: 
             shutDownTime = sunset_time + timedelta(minutes=leftTime)
             if(currentTime >= shutDownTime and currentTime < sunrise_time):
                 # close relay
                 GPIO.output(relay_pin, GPIO.HIGH)
+                relayState = "closed"
             else: 
                 # open relay
                 GPIO.output(relay_pin, GPIO.LOW)
+                relayState = "open"
         
         GPIO.cleanup()
         # refer to the pins by the Broadcom SOC channel
         GPIO.setmode(GPIO.BCM)
         GPIO.cleanup()
+
+        #write all measurements to log file (csv)
+        open("measurements.csv", "a").write(f"{currentTime},{temperature},{humidity},{lightLevel},{lightRating},{relayState}\n")
 
         # increase pass-trough number
         passTrough+=1
