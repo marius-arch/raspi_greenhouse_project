@@ -1,4 +1,4 @@
-# import all the used libraries
+## import all the used libraries
 import RPi.GPIO as GPIO
 import dht11
 import board
@@ -11,21 +11,19 @@ import os
 import pytz
 import urllib3
 import time
-#import mysql.connector
+import mysql.connector
  
 from adafruit_ht16k33.segments import Seg7x4
 import adafruit_character_lcd.character_lcd_i2c as character_lcd
 from luma.core.interface.serial import spi, noop
 from luma.core.render import canvas
 from luma.led_matrix.device import max7219
-from luma.core.legacy import text
-from luma.core.legacy.font import proportional, CP437_FONT, LCD_FONT
 from datetime import datetime, timezone, timedelta
 from statistics import median
-#from mysql.connector import errorcode
+from mysql.connector import errorcode
 
-# show that script has started
-print("Script has started. Version: v.1.0.2")
+# show that script has started with the current version
+print("Script has started. Version: v.1.0.4")
 
 ## initialize GPIO
 # disable warnings for ports that are already in use
@@ -36,7 +34,7 @@ GPIO.setmode(GPIO.BCM)
 GPIO.cleanup()
 
 ## Database
-#create database connection
+# create database connection
 config = {
   'user': 'root',
   'password': 'greatrootpassword123',
@@ -45,15 +43,16 @@ config = {
   'raise_on_warnings': True
 }
 
+# connect to database and initialize cursor
 # db = mysql.connector.connect(**config)
 # cursor = db.cursor()
 
-#create tables of database
+# create tables of database with database name
 DB_NAME = 'raspiGreenhouseProject'
 
 TABLES = {}
 TABLES['measurements'] = (
-    "CREATE TABLE `measurements` ("
+    "CREATE TABLE IF NOT EXISTS `measurements` ("
     "  `ID` int(5) NOT NULL AUTO_INCREMENT,"
     "  `Time` date NOT NULL,"
     "  `Temperature` float(5) NOT NULL,"
@@ -64,43 +63,44 @@ TABLES['measurements'] = (
     "  PRIMARY KEY (`ID`)"
     ") ENGINE=InnoDB")
 
-#create database
-# def create_database(cursor):
-#     try:
-#         cursor.execute(
-#             "CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(DB_NAME))
-#     except mysql.connector.Error as err:
-#         print("Failed creating database: {}".format(err))
-#         exit(1)
+# create database
+def create_database(cursor):
+    try:
+        cursor.execute(
+            "CREATE DATABASE IF NOT EXISTS {} DEFAULT CHARACTER SET 'utf8'".format(DB_NAME))
+    except mysql.connector.Error as err:
+        print("Failed creating database: {}".format(err))
+        exit(1)
 
-# try:
-#     cursor.execute("USE {}".format(DB_NAME))
-# except mysql.connector.Error as err:
-#     print("Database {} does not exists.".format(DB_NAME))
-#     if err.errno == errorcode.ER_BAD_DB_ERROR:
-#         create_database(cursor)
-#         print("Database {} created successfully.".format(DB_NAME))
-#         db.database = DB_NAME
-#     else:
-#         print(err)
-#         exit(1)
 
-# #create tables
-# for table_name in TABLES:
-#     table_description = TABLES[table_name]
-#     try:
-#         print("Creating table {}: ".format(table_name), end='')
-#         cursor.execute(table_description)
-#     except mysql.connector.Error as err:
-#         if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
-#             print("already exists.")
-#         else:
-#             print(err.msg)
-#     else:
-#         print("OK")
+try:
+    # tell database connection which database should be used
+    cursor.execute("USE {}".format(DB_NAME))
+# catch error
+except mysql.connector.Error as err:
+    print("Database {} does not exists.".format(DB_NAME))
+    if err.errno == errorcode.ER_BAD_DB_ERROR:
+        create_database(cursor)
+        print("Database {} created successfully.".format(DB_NAME))
+        db.database = DB_NAME
+    else:
+        print(err)
+        exit(1)
 
-# cursor.close()
-# db.close()
+# create tables
+for table_name in TABLES:
+    table_description = TABLES[table_name]
+    try:
+        print("Creating table {}: ".format(table_name), end='')
+        cursor.execute(table_description)
+    except mysql.connector.Error as err:
+            print(err.msg)
+    else:
+        print("OK")
+
+# close database connection
+cursor.close()
+db.close()
 
 
 # define relay pin
@@ -117,7 +117,7 @@ segment = Seg7x4(i2c, address=0x70)
 # clear the 7 segment display
 segment.fill(0)
 
-##initialize matrix display
+## initialize matrix display
 serial = spi(port=0, device=1, gpio=noop())
 device = max7219(serial)
  
@@ -128,10 +128,11 @@ lcd.clear()
 
 ## define ntp client for time pull
 c = ntplib.NTPClient()
-#dissable certificate warning
+
+## disable certificate warning
 urllib3.disable_warnings()
 
-##timezone initialisation
+## timezone initialization
 utc=pytz.UTC
 
 ## define which smbus to use
@@ -197,6 +198,7 @@ class LightSensor():
         return ((data[1] + (256 * data[0])) / 1.2)
 
     def readLight(self):
+        # read current light level and convert to decimal number
         data = bus.read_i2c_block_data(self.DEVICE,self.ONE_TIME_HIGH_RES_MODE_1)
         return self.convertToNumber(data)
 
@@ -220,18 +222,17 @@ def dht11Measurement():
     global humidity
     humidity = median(sorted(humidities))
 
-##function for converting array to draw array to matrix
-def drawMatrixSymbol(symbol, color):
-    temp = []
+## function for converting array to draw array to matrix
+def drawMatrixSymbol(symbol):
+    tuples = []
     for row in range(len(symbol)):
         for col in range(len(symbol[row])):
             if(symbol[row][col] == 1):
-                temp.append((row,col))
-    print(temp)
+                tuples.append((row,col))
     with canvas(device) as draw:
-        draw.point(tuple(temp), fill="white")
+        draw.point(tuple(tuples), fill="white")
 
-##function for converting utc datetime to local datetime
+## function for converting utc datetime to local datetime
 def datetimeToLocal(utcDateTime):
     nowTimestamp = time.time()
     offset = datetime.fromtimestamp(nowTimestamp) - datetime.utcfromtimestamp(nowTimestamp)
@@ -244,17 +245,17 @@ def main():
     
     sensor = LightSensor()
 
-    #check if log file exists
+    # check if log file exists
     if(os.path.exists("measurements.csv") == False):
         open("measurements.csv", "a").write("Time;Temperature;Humidity;Light;LightRating;RelayState\n")
 
 
-    # while True continiously runs the code inside of it, to make sure the measured values are up-to-date
+    # while True continuously runs the code inside of it, to make sure the measured values are up-to-date
     while True:
         print("Current run: {}".format(passTrough))
         print("Starting measurements...")
 
-        #start measurements
+        # start measurements
         dht11Measurement()
     
         # prints the current measured temperature, light level with two decimal places
@@ -262,24 +263,22 @@ def main():
         print("Temperature: {:.1f}°C".format(temperature))
         print("Humidity: {:.0f}%".format(int(humidity)))
         
+        #read current light level with sensor and output it in the console
         lightLevel = sensor.readLight()
         print ("Light Level: {:.2f}".format(lightLevel))
-        #create empty line
+
+        # create empty line
         print()
 
         #draw symbols for light level
         if(50000.0 < lightLevel < 65000.0):
-            with canvas(device) as draw:
-                text(draw, (1,1), ":)", fill="white", font=proportional(LCD_FONT))
+            drawMatrixSymbol(happy_smiley)
             lightRating = "good"
         if(45000.0 < lightLevel < 50000.0 or 65000.0 < lightLevel < 70000.0):
-            with canvas(device) as draw:
-                text(draw, (1,1), ":I", fill="white", font=proportional(LCD_FONT))
+            drawMatrixSymbol(neutral_smiley)
             lightRating = "ok"
         if(lightLevel < 45000.0 or lightLevel > 70000.0):
-            drawMatrixSymbol(sad_smiley, "red")
-            #with canvas(device) as draw:
-                #text(draw, (1,1), ":(", fill="white", font=proportional(LCD_FONT))
+            drawMatrixSymbol(sad_smiley)
             lightRating = "bad"
     
         # configure what each segment of the display should show
@@ -310,46 +309,62 @@ def main():
         # lat and long of bszetdd
         lat = 51.033749
         long = 13.748540
+
+        # json response of sunrise web api
         response = requests.get(f'https://api.sunrise-sunset.org/json?lat={lat}&lng={long}&formatted=0', verify=False)
         data = json.loads(response.content)
         sunrise = data['results']['sunrise'] # data for sunrise
         sunset = data['results']['sunset'] # data for sunset
         sunrise_time = datetime(year=currentTime.year,month=currentTime.month, day=currentTime.day, hour=int(sunrise[11:13]), minute=int(sunrise[14:16]), tzinfo=(utc)) # transform sunrise into time format
         sunset_time = datetime(year=currentTime.year,month=currentTime.month, day=currentTime.day, hour=int(sunset[11:13]), minute=int(sunset[14:16]), tzinfo=(utc)) # transform sunset into time format
+        # calculate the difference between sunset and sunrise and the time that is left when subtracting the difference from 12 hours
         sunset_difference = (sunset_time.hour * 60 + sunset_time.minute) - (sunrise_time.hour * 60 + sunrise_time.minute)
         leftTime = 12*60 - sunset_difference
+
+        # check if the sun is still shining and the above checked lightRating
+        if(currentTime < sunset_time and currentTime > sunrise_time):
+            if(lightLevel == "bad"):
+                # close relay
+                GPIO.output(relay_pin, GPIO.HIGH)
+                relayState = "closed"
+            else:
+                # open relay
+                GPIO.output(relay_pin, GPIO.LOW)
+                relayState = "opened"
 
         # Board mode GPIO.BOARD
         #GPIO.setmode(GPIO.BOARD)
         # relay_pin as exit
         GPIO.setup(relay_pin, GPIO.OUT)
+        
+        # check if there is still light needed to fullfil the 12 hours of light
         if(leftTime <= 0):
-            # close relay
-            GPIO.output(relay_pin, GPIO.HIGH)
-            relayState = "closed"
+            # open relay -> open means light is off
+            GPIO.output(relay_pin, GPIO.LOW)
+            relayState = "opened"
         else: 
             shutDownTime = sunset_time + timedelta(minutes=leftTime)
-            if(currentTime >= shutDownTime and currentTime < sunrise_time):
+            if(currentTime >= shutDownTime):
+                # open relay
+                GPIO.output(relay_pin, GPIO.LOW)
+                relayState = "opened"
+            elif(currentTime > sunset_time and currentTime < sunrise_time):
                 # close relay
                 GPIO.output(relay_pin, GPIO.HIGH)
                 relayState = "closed"
-            else: 
-                # open relay
-                GPIO.output(relay_pin, GPIO.LOW)
-                relayState = "open"
         
         #GPIO.cleanup()
         # refer to the pins by the Broadcom SOC channel
         #GPIO.setmode(GPIO.BCM)
         #GPIO.cleanup()
         
-        #convert utc to local time
+        # convert utc to local time
         localTime = datetimeToLocal(currentTime).strftime("%d/%m/%Y, %H:%M:%S")
         
-        #write all measurements to log file (csv)
+        # write all measurements to log file (csv)
         open("measurements.csv", "a").write(f"{localTime};{temperature};{humidity};{lightLevel};{lightRating};{relayState}\n")
 
-        ##write data to database
+        ## write data to database
         sqlStatement = "INSERT INTO `sensorvalues` (`ID`, `Time`, `Temperature`, `Humidity`, `Humidity`, `LightLevel`, `LightRating`, `RelayState`"
         #cursor = db.cursor() # get a cursor from the database
         # ausführen des SQL Statements, es werden an den Platzhaltern "temp" & "hum" die jeweiligen Sensorwerte
