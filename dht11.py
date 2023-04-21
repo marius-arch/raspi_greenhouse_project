@@ -23,7 +23,7 @@ from datetime import datetime, timezone, timedelta
 from statistics import median
  
 # show that script has started with the current version
-print("Script has started. Version: v.1.0.4")
+print("Script has started. Version: v.1.0.6")
  
 ## initialize GPIO
 # disable warnings for ports that are already in use
