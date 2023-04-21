@@ -356,11 +356,6 @@ def main():
                 GPIO.output(relay_pin, GPIO.HIGH)
                 relayState = "closed"
  
-        #GPIO.cleanup()
-        # refer to the pins by the Broadcom SOC channel
-        #GPIO.setmode(GPIO.BCM)
-        #GPIO.cleanup()
- 
         # convert utc to local time
         localTime = datetimeToLocal(currentTime).strftime("%d/%m/%Y, %H:%M:%S")
  
@@ -370,12 +365,9 @@ def main():
         ## write data to database
         sqlStatement = f"INSERT INTO measurements (Time, Temperature, Humidity, Light, LightRating, RelayState) VALUES('{datetime.now()}', '{temperature}', '{humidity}', '{lightLevel}', '{lightRating}', '{relayState}')"
         cursor = conn.cursor() # get a cursor from the database
-        # ausführen des SQL Statements, es werden an den Platzhaltern "temp" & "hum" die jeweiligen Sensorwerte
-        # formatiert und eingesetzt
-        #cursor.execute(sqlStatement.format(temp = temperature, hum = humidity))
+        # execute the SQL Statement
         cursor.execute(sqlStatement)
-        # der Commit dient dazu die Daten in die Datenbank zu speichern
-        #cursor.execute("COMMIT;")
+        # the commit is used for saving the data in the database
         conn.commit()
  
         # increase pass-trough number
@@ -383,10 +375,6 @@ def main():
  
         # wait 200ms until continuing
         time.sleep(0.2)
- 
-        # website for matrix:
-        # https://xantorohara.github.io/led-matrix-editor/
-        # https://luma-led-matrix.readthedocs.io/en/latest/python-usage.html
  
 # run main function
 if __name__ == "__main__":
